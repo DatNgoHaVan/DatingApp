@@ -8,6 +8,10 @@ namespace DatingApp.API.Data
   public class AuthRepository : IAuthRepository
   {
     private readonly DataContext _context;
+
+    //services.AddDbContext<DataContext>(x=>x.UseSqlite(Configuration.GetConnectionString("DefaultConnection")));
+    //Once its added here we can then make use of the DataContext inside any of our classes by injecting it into the class constructor  
+    //as anything inside the ConfigureServices method inside the Startup.cs class will be available to be used (injected) into other parts of our application.  
     public AuthRepository(DataContext context)
     {
       _context = context;
@@ -15,7 +19,29 @@ namespace DatingApp.API.Data
 
     public async Task<User> Login(string username, string password)
     {
-      return null;
+      var user = await _context.Users.FirstOrDefaultAsync(x => x.Username == username);
+
+      if (user == null)
+        return null;
+
+      if (!VerifyPasswordHash(password, user.PasswordHash, user.PasswordSalt))
+        return null;
+
+      return user;
+    }
+
+    private bool VerifyPasswordHash(string password, byte[] passwordHash, byte[] passwordSalt)
+    {
+      using (var hmac = new System.Security.Cryptography.HMACSHA512(passwordSalt))
+      {
+        var computedHash = hmac.ComputeHash(System.Text.Encoding.UTF8.GetBytes(password));
+        // use for because it's a byte array. Why byte array? Because method in hmac is defined as byte array.
+        for (int i = 0; i < computedHash.Length; i++)
+        {
+          if (computedHash[i] != passwordHash[i]) return false;
+        }
+      }
+      return true;
     }
 
     public async Task<User> Register(User user, string password)
@@ -34,17 +60,19 @@ namespace DatingApp.API.Data
 
     private void CreatePasswordHash(string password, out byte[] passwordHash, out byte[] passwordSalt)
     {
-        using (var hmac = new System.Security.Cryptography.HMACSHA512())
-        {
-          passwordSalt = hmac.Key;
-          passwordHash = hmac.ComputeHash(System.Text.Encoding.UTF8.GetBytes(password));
-        }
-      
+      using (var hmac = new System.Security.Cryptography.HMACSHA512())
+      {
+        passwordSalt = hmac.Key;
+        passwordHash = hmac.ComputeHash(System.Text.Encoding.UTF8.GetBytes(password));
+      }
     }
 
-    public Task<bool> UserExists(string username)
+    public async Task<bool> UserExists(string username)
     {
-      throw new System.NotImplementedException();
+      // anyasync because we want to compare with every username in database
+      if (await _context.Users.AnyAsync(x => x.Username == username))
+        return true;
+      return false;
     }
   }
 }
