@@ -35,6 +35,7 @@ namespace DatingApp.API
       services.AddCors();
       // Read dependency injection stuff for knowing how it works
       services.AddScoped<IAuthRepository, AuthRepository>();
+      //config authentication
       services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         .AddJwtBearer(options => {
           options.TokenValidationParameters = new TokenValidationParameters
@@ -63,6 +64,7 @@ namespace DatingApp.API
 
       //app.UseHttpsRedirection();
       app.UseCors(x => x.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader());
+      app.UseAuthentication();
       app.UseMvc();
     }
   }
